@@ -9,7 +9,7 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/ktr0731/go-fuzzyfinder v0.8.0
-	github.com/mattn/go-colorable v0.1.13
+	github.com/mattn/go-colorable v0.1.14
 	github.com/mitchellh/mapstructure v1.4.2
 	github.com/muesli/termenv v0.9.0
 	github.com/schollz/progressbar/v3 v3.8.3
@@ -48,7 +48,7 @@ require (
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
 	golang.org/x/net v0.0.0-20220722155237-a158d28d115b // indirect
 	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f // indirect
-	golang.org/x/sys v0.25.0 // indirect
+	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/term v0.5.0 // indirect
 	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect

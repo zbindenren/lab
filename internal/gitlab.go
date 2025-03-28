@@ -2,7 +2,7 @@ package internal
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"regexp"
 	"strings"
 	"sync"
@@ -140,7 +140,7 @@ func DoTrace(client *gitlab.Client, pid interface{}, job *gitlab.Job, tailLine i
 	for range time.NewTicker(interval).C {
 		trace, _, err := client.Jobs.GetTraceFile(pid, job.ID)
 		utils.Check(err)
-		buffer, err := ioutil.ReadAll(trace)
+		buffer, err := io.ReadAll(trace)
 		utils.Check(err)
 		lines := strings.Split(string(buffer), "\n")
 		length := len(lines)

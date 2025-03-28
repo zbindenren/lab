@@ -13,7 +13,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/muesli/termenv v0.16.0
 	github.com/schollz/progressbar/v3 v3.18.0
-	github.com/spf13/cobra v1.2.1
+	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.9.0
 	github.com/xanzy/go-gitlab v0.52.0
 )
@@ -28,7 +28,7 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.1 // indirect
 	github.com/hashicorp/go-retryablehttp v0.6.8 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/ktr0731/go-ansisgr v0.1.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
@@ -44,7 +44,7 @@ require (
 	github.com/spf13/afero v1.6.0 // indirect
 	github.com/spf13/cast v1.4.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	golang.org/x/net v0.0.0-20220722155237-a158d28d115b // indirect
 	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f // indirect

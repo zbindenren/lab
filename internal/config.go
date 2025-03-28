@@ -2,13 +2,11 @@ package internal
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/a8m/envsubst"
-	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
 
 	"github.com/ackerr/lab/utils"
@@ -57,8 +55,6 @@ var (
 	ProjectPath string
 )
 
-var decodeOpt = func(config *mapstructure.DecoderConfig) { config.TagName = "toml" }
-
 func SetupConfig() {
 	home, _ := os.UserHomeDir()
 	LabDir = filepath.Join(home, ".config", "lab")
@@ -68,37 +64,38 @@ func SetupConfig() {
 		ConfigPath = filepath.Join(LabDir, "config.toml")
 	}
 	if _, err = os.Stat(ConfigPath); os.IsNotExist(err) {
-		err = ioutil.WriteFile(ConfigPath, content, utils.FilePerm)
+		err = os.WriteFile(ConfigPath, content, utils.FilePerm)
 		utils.Check(err)
 	}
 	buf, err := envsubst.ReadFile(ConfigPath)
 	utils.Check(err)
+	viper.SetConfigType("toml")
 	viper.AddConfigPath(LabDir)
 	err = viper.ReadConfig(bytes.NewReader(buf))
 	utils.Check(err)
 }
 
 type gitlabConfig struct {
-	BaseURL   string `toml:"base_url"`
-	Token     string `toml:"token"`
-	Codespace string `toml:"codespace"`
-	Name      string `toml:"name"`
-	Email     string `toml:"email"`
-	Projects  string `toml:"projects"`
+	BaseURL   string `mapstructure:"base_url"`
+	Token     string `mapstructure:"token"`
+	Codespace string `mapstructure:"codespace"`
+	Name      string `mapstructure:"name"`
+	Email     string `mapstructure:"email"`
+	Projects  string `mapstructure:"projects"`
 }
 
 type mainConfig struct {
-	ThemeColor     string `toml:"theme_color"`
-	CloneOpts      string `toml:"clone_opts"`
-	TailLineNumber int64  `toml:"tail_line_number"`
-	FZF            bool   `toml:"fzf"`
+	ThemeColor     string `mapstructure:"theme_color"`
+	CloneOpts      string `mapstructure:"clone_opts"`
+	TailLineNumber int64  `mapstructure:"tail_line_number"`
+	FZF            bool   `mapstructure:"fzf"`
 }
 
 func Setup() {
 	// init main config
 	MainConfig = &mainConfig{}
 	viper.SetDefault("main.theme_color", "79")
-	err := viper.Sub("main").Unmarshal(MainConfig, decodeOpt)
+	err := viper.Sub("main").Unmarshal(MainConfig)
 	utils.Check(err)
 	if len(MainConfig.ThemeColor) == 0 {
 		MainConfig.ThemeColor = "79"
@@ -109,7 +106,7 @@ func Setup() {
 
 	// init gitlab config
 	Config = &gitlabConfig{}
-	err = viper.Sub("gitlab").Unmarshal(Config, decodeOpt)
+	err = viper.Sub("gitlab").Unmarshal(Config)
 	utils.Check(err)
 
 	if len(Config.Token) == 0 {

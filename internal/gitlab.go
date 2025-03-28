@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"github.com/schollz/progressbar/v3"
-	"github.com/xanzy/go-gitlab"
+	gitlab "gitlab.com/gitlab-org/api/client-go"
 
 	"github.com/ackerr/lab/utils"
 )
 
 var (
-	prePage    = 100
+	perPage    = 100
 	apiVersion = "v4"
 )
 
@@ -46,8 +46,11 @@ func Projects(syncAll bool) []string {
 		progressbar.OptionClearOnFinish(),
 		progressbar.OptionSetPredictTime(false),
 	)
-	allProjects := make([]string, totalPage*prePage)
+	allProjects := make([]string, totalPage*perPage)
 	ns := projectNameSpaces(items)
+
+	fmt.Println(len(ns), totalPage)
+
 	copy(allProjects[:len(ns)], ns)
 	_ = bar.Add(1)
 	var wg sync.WaitGroup
@@ -57,7 +60,7 @@ func Projects(syncAll bool) []string {
 			defer wg.Done()
 			p, _ := projects(client, cur, syncAll)
 			ns := projectNameSpaces(p)
-			start := prePage * (cur - 1)
+			start := perPage * (cur - 1)
 			copy(allProjects[start:start+len(ns)], ns)
 			_ = bar.Add(1)
 		}(curPage)
@@ -78,7 +81,7 @@ func projectNameSpaces(projects []*gitlab.Project) []string {
 }
 
 func projects(client *gitlab.Client, page int, syncAll bool) ([]*gitlab.Project, int) {
-	listOpt := gitlab.ListOptions{PerPage: prePage, Page: page}
+	listOpt := gitlab.ListOptions{PerPage: perPage, Page: page}
 	projectsOpt := gitlab.ListProjectsOptions{Simple: gitlab.Bool(true), Membership: gitlab.Bool(!syncAll), ListOptions: listOpt}
 	projects, res, err := client.Projects.ListProjects(&projectsOpt)
 	if err != nil {

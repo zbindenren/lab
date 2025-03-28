@@ -1,12 +1,12 @@
 package cmd
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/xanzy/go-gitlab"
 
 	"github.com/ackerr/lab/internal"
 	"github.com/ackerr/lab/utils"
@@ -39,13 +39,16 @@ func lint(_ *cobra.Command, args []string) {
 	if !utils.FileExists(path) {
 		utils.Err(path, "not exist")
 	}
-	content, err := ioutil.ReadFile(path)
+	content, err := os.ReadFile(path)
 	utils.Check(err)
 	if len(content) == 0 {
 		utils.Err("empty .gitlab-ci.yml")
 	}
 	client := internal.NewClient()
-	result, _, err := client.Validate.Lint(string(content))
+	// result, _, err := client.Validate.Lint(string(content))
+	result, _, err := client.Validate.Lint(&gitlab.LintOptions{
+		Content: string(content),
+	})
 	utils.Check(err)
 	if result.Status != "valid" {
 		for _, e := range result.Errors {

@@ -82,7 +82,7 @@ func projectNameSpaces(projects []*gitlab.Project) []string {
 
 func projects(client *gitlab.Client, page int, syncAll bool) ([]*gitlab.Project, int) {
 	listOpt := gitlab.ListOptions{PerPage: perPage, Page: page}
-	projectsOpt := gitlab.ListProjectsOptions{Simple: gitlab.Bool(true), Membership: gitlab.Bool(!syncAll), ListOptions: listOpt}
+	projectsOpt := gitlab.ListProjectsOptions{Simple: gitlab.Ptr(true), Membership: gitlab.Ptr(!syncAll), ListOptions: listOpt}
 	projects, res, err := client.Projects.ListProjects(&projectsOpt)
 	if err != nil {
 		utils.PrintErr(err)
@@ -106,7 +106,7 @@ func TransferGitURLToProject(gitURL string) string {
 	return url
 }
 
-func TraceRunningJobs(client *gitlab.Client, pid interface{}, jobs []*gitlab.Job, tailLine int64) bool {
+func TraceRunningJobs(client *gitlab.Client, pid any, jobs []*gitlab.Job, tailLine int64) bool {
 	wg := sync.WaitGroup{}
 	allDone := true
 	for _, job := range jobs {
@@ -136,7 +136,7 @@ func IsRunning(status string) bool {
 // It will make prefix failure, so replace it. PS: \x1b == ^[
 var re = regexp.MustCompile(`\x1b\[0m.*\[0K`)
 
-func DoTrace(client *gitlab.Client, pid interface{}, job *gitlab.Job, tailLine int64) error {
+func DoTrace(client *gitlab.Client, pid any, job *gitlab.Job, tailLine int64) error {
 	var offset int64
 	firstTail := true
 	prefix := utils.RandomColor(fmt.Sprintf("[%s] ", job.Name))
@@ -148,10 +148,7 @@ func DoTrace(client *gitlab.Client, pid interface{}, job *gitlab.Job, tailLine i
 		lines := strings.Split(string(buffer), "\n")
 		length := len(lines)
 		if firstTail {
-			begin := int64(length) - tailLine
-			if begin < 0 {
-				begin = 0
-			}
+			begin := max(int64(length)-tailLine, 0)
 			lines = lines[begin : len(lines)-1]
 			firstTail = false
 		}

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/schollz/progressbar/v3"
+	"github.com/briandowns/spinner"
 	gitlab "gitlab.com/gitlab-org/api/client-go"
 
 	"github.com/ackerr/lab/utils"
@@ -36,42 +36,12 @@ func NewClient() *gitlab.Client {
 // Projects will return all projects path with namespace
 func Projects(syncAll bool) []string {
 	client := NewClient()
-	items, totalPage := projects(client, 1, syncAll)
-	bar := progressbar.NewOptions(
-		totalPage,
-		progressbar.OptionSetDescription("Syncing"),
-		progressbar.OptionShowBytes(false),
-		progressbar.OptionSetRenderBlankState(false),
-		progressbar.OptionThrottle(throttle),
-		progressbar.OptionClearOnFinish(),
-		progressbar.OptionSetPredictTime(false),
-	)
-	allProjects := make([]string, totalPage*perPage)
-	ns := projectNameSpaces(items)
 
-	fmt.Println(len(ns), totalPage)
-
-	copy(allProjects[:len(ns)], ns)
-	_ = bar.Add(1)
-	var wg sync.WaitGroup
-	for curPage := 2; curPage <= totalPage; curPage++ {
-		wg.Add(1)
-		go func(cur int) {
-			defer wg.Done()
-			p, _ := projects(client, cur, syncAll)
-			ns := projectNameSpaces(p)
-			start := perPage * (cur - 1)
-			copy(allProjects[start:start+len(ns)], ns)
-			_ = bar.Add(1)
-		}(curPage)
-	}
-	wg.Wait()
-	_ = bar.Finish()
-	return allProjects
+	return getAllGroupProjects(client, "linux")
 }
 
 func projectNameSpaces(projects []*gitlab.Project) []string {
-	ns := make([]string, 0)
+	ns := make([]string, 0, len(projects))
 	for _, p := range projects {
 		if p.Namespace.Kind == "group" {
 			ns = append(ns, p.PathWithNamespace)
@@ -80,15 +50,139 @@ func projectNameSpaces(projects []*gitlab.Project) []string {
 	return ns
 }
 
-func projects(client *gitlab.Client, page int, syncAll bool) ([]*gitlab.Project, int) {
-	listOpt := gitlab.ListOptions{PerPage: perPage, Page: page}
-	projectsOpt := gitlab.ListProjectsOptions{Simple: gitlab.Ptr(true), Membership: gitlab.Ptr(!syncAll), ListOptions: listOpt}
-	projects, res, err := client.Projects.ListProjects(&projectsOpt)
-	if err != nil {
-		utils.PrintErr(err)
-		return []*gitlab.Project{}, 0
+// getAllProjects gets all projects. It performs numWorkers parallel requests. It starts a spinner until
+// all projects are synchronized
+func getAllProjects(client *gitlab.Client, syncAll bool, numWorkers int) []string {
+	opt := gitlab.ListOptions{
+		PerPage: perPage,
+		Page:    1,
 	}
-	return projects, res.TotalPages
+	fmt.Println(numWorkers)
+
+	projectsOpt := gitlab.ListProjectsOptions{
+		Simple:           gitlab.Ptr(true),
+		Membership:       gitlab.Ptr(!syncAll),
+		SearchNamespaces: gitlab.Ptr(true),
+		Search:           gitlab.Ptr("linux"),
+		ListOptions:      opt,
+	}
+	// projectsOpt := gitlab.ListProjectsOptions{Simple: gitlab.Ptr(true), Membership: gitlab.Ptr(!syncAll), ListOptions: opt}
+
+	// Start spinner
+	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
+	s.Prefix = "sync in process"
+	s.Start()
+	defer s.Stop()
+
+	allProjects := []string{}
+	for {
+		ps, resp, err := client.Projects.ListProjects(&projectsOpt)
+		if err != nil {
+			fmt.Println(err)
+			utils.PrintErr(err)
+		}
+
+		allProjects = append(allProjects, projectNameSpaces(ps)...)
+		fmt.Println(len(allProjects), projectNameSpaces(ps)[1])
+		fmt.Println(resp.NextPage)
+		if resp.NextPage == 0 {
+			break
+		}
+		projectsOpt.Page = resp.NextPage
+	}
+
+	return allProjects
+}
+
+// getAllGroupProjects gets all projects for a specific group and all its subgroups with pagination
+func getAllGroupProjects(client *gitlab.Client, groupID any) []string {
+	// Get all subgroups recursively
+	subgroups := getAllSubgroups(client, groupID)
+
+	// Add the main group to the list of groups to process
+	allGroups := append([]any{groupID}, subgroups...)
+
+	// Get projects for each group
+	var allProjects []string
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	for _, gID := range allGroups {
+		wg.Add(1)
+		go func(gID any) {
+			defer wg.Done()
+			projects := getGroupProjects(client, gID)
+
+			mu.Lock()
+			allProjects = append(allProjects, projects...)
+			mu.Unlock()
+
+			time.Sleep(throttle) // Avoid rate limiting
+		}(gID)
+	}
+
+	wg.Wait()
+	return allProjects
+}
+
+// getGroupProjects gets projects for a single group with pagination
+func getGroupProjects(client *gitlab.Client, groupID any) []string {
+	opt := gitlab.ListOptions{
+		PerPage: perPage,
+		Page:    1,
+	}
+
+	var projects []string
+	for {
+		ps, resp, err := client.Groups.ListGroupProjects(groupID, &gitlab.ListGroupProjectsOptions{ListOptions: opt})
+		if err != nil {
+			utils.PrintErr(err)
+			break
+		}
+
+		// Extract path with namespace for each project
+		for _, p := range ps {
+			projects = append(projects, p.PathWithNamespace)
+		}
+
+		if resp.NextPage == 0 {
+			break
+		}
+		opt.Page = resp.NextPage
+	}
+
+	return projects
+}
+
+// getAllSubgroups gets all subgroups recursively for a specific group
+func getAllSubgroups(client *gitlab.Client, groupID any) []any {
+	opt := gitlab.ListOptions{
+		PerPage: perPage,
+		Page:    1,
+	}
+
+	var allSubgroups []any
+	for {
+		// Use ListDescendantGroups to get all descendant groups (including nested subgroups)
+		subgroups, resp, err := client.Groups.ListDescendantGroups(groupID, &gitlab.ListDescendantGroupsOptions{
+			ListOptions: opt,
+		})
+		if err != nil {
+			utils.PrintErr(err)
+			break
+		}
+
+		for _, sg := range subgroups {
+			allSubgroups = append(allSubgroups, sg.ID)
+		}
+
+		if resp.NextPage == 0 {
+			break
+		}
+		opt.Page = resp.NextPage
+	}
+
+	return allSubgroups
 }
 
 // TransferGitURLToProject example:

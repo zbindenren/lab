@@ -22,6 +22,7 @@ var lintCmd = &cobra.Command{
 	Run:   lint,
 }
 
+// asdfasdf
 func lint(_ *cobra.Command, args []string) {
 	internal.Setup()
 	var path string

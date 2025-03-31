@@ -37,7 +37,7 @@ func NewClient() *gitlab.Client {
 func Projects(syncAll bool) []string {
 	client := NewClient()
 
-	return getAllGroupProjects(client, "linux")
+	return getAllGroupProjects(client, "linux", "kubernetes")
 }
 
 func projectNameSpaces(projects []*gitlab.Project) []string {
@@ -95,12 +95,13 @@ func getAllProjects(client *gitlab.Client, syncAll bool, numWorkers int) []strin
 }
 
 // getAllGroupProjects gets all projects for a specific group and all its subgroups with pagination
-func getAllGroupProjects(client *gitlab.Client, groupID any) []string {
-	// Get all subgroups recursively
-	subgroups := getAllSubgroups(client, groupID)
+func getAllGroupProjects(client *gitlab.Client, groups ...any) []string {
+	allGroups := []any{}
 
-	// Add the main group to the list of groups to process
-	allGroups := append([]any{groupID}, subgroups...)
+	for _, g := range groups {
+		allGroups = append(allGroups, g)
+		allGroups = append(allGroups, getAllSubgroups(client, g)...)
+	}
 
 	// Get projects for each group
 	var allProjects []string

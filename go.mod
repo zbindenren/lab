@@ -8,7 +8,7 @@ require (
 	github.com/fatih/color v1.19.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/ktr0731/go-fuzzyfinder v0.9.0
-	github.com/mattn/go-colorable v0.1.14
+	github.com/mattn/go-colorable v0.1.16
 	github.com/muesli/termenv v0.16.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1

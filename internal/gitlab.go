@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	perPage    = 100
+	perPage    int64 = 100
 	apiVersion = "v4"
 )
 

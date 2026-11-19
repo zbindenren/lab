@@ -30,7 +30,7 @@ func PrintlnWithColor(a ...interface{}) {
 func RandomColor(in string) string {
 	rand.Seed(time.Now().UnixNano())
 	index := rand.Intn(len(Color))
-	return color.New(Color[index]).Sprintf(in)
+	return color.New(Color[index]).Sprintf("%s", in)
 }
 
 func ColorFg(val, color string) string {

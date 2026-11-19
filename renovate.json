@@ -1,0 +1,7 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "local>linux/renovate-presets",
+    "local>linux/renovate-presets//create-go-app"
+  ]
+}

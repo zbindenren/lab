@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -32,14 +33,36 @@ func syncProjects() {
 
 	defer file.Close()
 
-	ns := internal.Projects()
+	ns, counts := internal.Projects()
 	sort.Strings(ns)
+
+	synced := 0
 
 	for _, n := range ns {
 		if n != "" {
 			fmt.Fprintln(file, n)
+
+			synced++
 		}
 	}
 
-	println("Done.")
+	fmt.Fprint(os.Stderr, groupCountsReport(counts))
+	fmt.Fprintf(os.Stderr, "Done. %d projects\n", synced)
+}
+
+// groupCountsReport renders one "group count" line per group, aligned on the
+// longest group path. counts must be sorted by group.
+func groupCountsReport(counts []internal.GroupProjects) string {
+	width := 0
+	for _, c := range counts {
+		width = max(width, len(c.Group))
+	}
+
+	var out strings.Builder
+
+	for _, c := range counts {
+		fmt.Fprintf(&out, "%-*s %d\n", width, c.Group, c.Projects)
+	}
+
+	return out.String()
 }

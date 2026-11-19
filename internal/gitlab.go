@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -50,48 +51,66 @@ func newClient(baseURL, token string) (*gitlab.Client, error) {
 	return gitlab.NewClient(token, path)
 }
 
-// Projects returns the path with namespace of all projects in the synced groups.
-func Projects() []string {
+// GroupProjects counts the projects found in a single group.
+type GroupProjects struct {
+	Group    string
+	Projects int
+}
+
+// Projects returns the path with namespace of all projects in the synced groups,
+// together with the number of projects per group sorted by group path.
+func Projects() ([]string, []GroupProjects) {
 	client := NewClient()
 
 	return getAllGroupProjects(client, "linux", "kubernetes")
 }
 
 // getAllGroupProjects gets all projects for a specific group and all its subgroups with pagination
-func getAllGroupProjects(client *gitlab.Client, groups ...any) []string {
-	allGroups := make([]any, 0, len(groups))
+func getAllGroupProjects(client *gitlab.Client, groups ...string) ([]string, []GroupProjects) {
+	allGroups := make([]string, 0, len(groups))
 
 	for _, g := range groups {
 		allGroups = append(allGroups, g)
 		allGroups = append(allGroups, getAllSubgroups(client, g)...)
 	}
 
+	// The group count is only known once discovery is done, so the counter covers
+	// the fetch pass only.
+	progress := utils.NewProgress(len(allGroups))
+
 	// Get projects for each group
 	var (
 		allProjects []string
+		counts      []GroupProjects
 		mu          sync.Mutex
 		wg          sync.WaitGroup
 	)
 
-	for _, gID := range allGroups {
+	for _, group := range allGroups {
 		wg.Add(1)
-		go func(gID any) {
+		go func(group string) {
 			defer wg.Done()
 
-			projects := getGroupProjects(client, gID)
+			projects := getGroupProjects(client, group)
 
 			mu.Lock()
 
 			allProjects = append(allProjects, projects...)
+			counts = append(counts, GroupProjects{Group: group, Projects: len(projects)})
 			mu.Unlock()
 
+			progress.Step(group)
+
 			time.Sleep(throttle) // Avoid rate limiting
-		}(gID)
+		}(group)
 	}
 
 	wg.Wait()
+	progress.Done()
 
-	return allProjects
+	sort.Slice(counts, func(i, j int) bool { return counts[i].Group < counts[j].Group })
+
+	return allProjects, counts
 }
 
 // getGroupProjects gets projects for a single group with pagination
@@ -125,14 +144,14 @@ func getGroupProjects(client *gitlab.Client, groupID any) []string {
 	return projects
 }
 
-// getAllSubgroups gets all subgroups recursively for a specific group
-func getAllSubgroups(client *gitlab.Client, groupID any) []any {
+// getAllSubgroups gets the full path of all subgroups recursively for a specific group
+func getAllSubgroups(client *gitlab.Client, groupID string) []string {
 	opt := gitlab.ListOptions{
 		PerPage: perPage,
 		Page:    1,
 	}
 
-	var allSubgroups []any
+	var allSubgroups []string
 
 	for {
 		// Use ListDescendantGroups to get all descendant groups (including nested subgroups)
@@ -145,7 +164,7 @@ func getAllSubgroups(client *gitlab.Client, groupID any) []any {
 		}
 
 		for _, sg := range subgroups {
-			allSubgroups = append(allSubgroups, sg.ID)
+			allSubgroups = append(allSubgroups, sg.FullPath)
 		}
 
 		if resp.NextPage == 0 {

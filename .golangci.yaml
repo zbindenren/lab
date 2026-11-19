@@ -124,7 +124,7 @@ linters:
       # - map: Ensures all enum values are present when initializing maps with enum keys
       check:
         - switch
-        - map
+        - mapliteral
       # Presence of "default" case in switch statements satisfies exhaustiveness,
       # even if all enum members are not listed.
       # Default: false
@@ -194,6 +194,17 @@ linters:
   exclusions:
     # Very commonly not checked.
     rules:
+      # Commands, their flags and cobra.OnInitialize registration are package-level
+      # by design: the cmd package is only a declaration table for the CLI.
+      - path: ^cmd/
+        linters:
+          - gochecknoglobals
+          - gochecknoinits
+      # The config is a process-wide singleton, loaded once by cobra.OnInitialize.
+      - path: ^internal/config\.go$
+        linters:
+          - gochecknoglobals
+        text: "^(Config|MainConfig|LabDir|ConfigPath|ProjectPath) is a global variable"
       - path: (.+)\.go$
         text: Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*print(f|ln)?|os\.(Un)?Setenv). is not checked
       - path: (.+)\.go$

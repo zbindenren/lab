@@ -12,32 +12,34 @@ import (
 )
 
 func init() {
-	syncCmd.Flags().Bool("all", false, "sync all projects, default sync project if you are the membership")
 	rootCmd.AddCommand(syncCmd)
 }
 
 var syncCmd = &cobra.Command{
-	Use:   "sync [--all]",
+	Use:   "sync",
 	Short: "Sync gitlab projects",
-	Run: func(cmd *cobra.Command, _ []string) {
-		syncAll, _ := cmd.Flags().GetBool("all")
-		syncProjects(syncAll)
+	Run: func(_ *cobra.Command, _ []string) {
+		syncProjects()
 	},
 }
 
 // 同步项目, 顺便按字母排个序
-func syncProjects(syncAll bool) {
+func syncProjects() {
 	internal.Setup()
+
 	file, err := os.Create(internal.ProjectPath)
 	utils.Check(err)
 
 	defer file.Close()
-	ns := internal.Projects(syncAll)
+
+	ns := internal.Projects()
 	sort.Strings(ns)
+
 	for _, n := range ns {
 		if n != "" {
 			fmt.Fprintln(file, n)
 		}
 	}
+
 	println("Done.")
 }

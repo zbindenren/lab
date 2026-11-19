@@ -23,7 +23,7 @@ var configCmd = &cobra.Command{
 func editConfig(_ *cobra.Command, _ []string) {
 	configPath := internal.ConfigPath
 	editor := utils.GetEnv("EDITOR", "vim")
-	command := exec.Command(editor, configPath)
+	command := exec.Command(editor, configPath) // #nosec G204 -- the editor is the user's $EDITOR and the path is the lab config file
 	command.Stdin = os.Stdin
 	command.Stdout = os.Stdout
 	_ = command.Run()

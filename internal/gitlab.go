@@ -8,95 +8,41 @@ import (
 	"sync"
 	"time"
 
-	"github.com/briandowns/spinner"
 	gitlab "gitlab.com/gitlab-org/api/client-go"
 
 	"github.com/ackerr/lab/utils"
 )
 
-var (
-	perPage    int64 = 100
-	apiVersion = "v4"
-)
-
 const (
+	perPage    int64 = 100
+	apiVersion       = "v4"
+
 	interval = 3 * time.Second
 	throttle = 50 * time.Microsecond
 )
 
+// NewClient creates a gitlab client for the configured base url and token.
 func NewClient() *gitlab.Client {
 	path := gitlab.WithBaseURL(strings.Join([]string{Config.BaseURL, "api", apiVersion}, "/"))
+
 	client, err := gitlab.NewClient(Config.Token, path)
 	if err != nil {
 		utils.Err(err)
 	}
+
 	return client
 }
 
-// Projects will return all projects path with namespace
-func Projects(syncAll bool) []string {
+// Projects returns the path with namespace of all projects in the synced groups.
+func Projects() []string {
 	client := NewClient()
 
 	return getAllGroupProjects(client, "linux", "kubernetes")
 }
 
-func projectNameSpaces(projects []*gitlab.Project) []string {
-	ns := make([]string, 0, len(projects))
-	for _, p := range projects {
-		if p.Namespace.Kind == "group" {
-			ns = append(ns, p.PathWithNamespace)
-		}
-	}
-	return ns
-}
-
-// getAllProjects gets all projects. It performs numWorkers parallel requests. It starts a spinner until
-// all projects are synchronized
-func getAllProjects(client *gitlab.Client, syncAll bool, numWorkers int) []string {
-	opt := gitlab.ListOptions{
-		PerPage: perPage,
-		Page:    1,
-	}
-	fmt.Println(numWorkers)
-
-	projectsOpt := gitlab.ListProjectsOptions{
-		Simple:           gitlab.Ptr(true),
-		Membership:       gitlab.Ptr(!syncAll),
-		SearchNamespaces: gitlab.Ptr(true),
-		Search:           gitlab.Ptr("linux"),
-		ListOptions:      opt,
-	}
-	// projectsOpt := gitlab.ListProjectsOptions{Simple: gitlab.Ptr(true), Membership: gitlab.Ptr(!syncAll), ListOptions: opt}
-
-	// Start spinner
-	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
-	s.Prefix = "sync in process"
-	s.Start()
-	defer s.Stop()
-
-	allProjects := []string{}
-	for {
-		ps, resp, err := client.Projects.ListProjects(&projectsOpt)
-		if err != nil {
-			fmt.Println(err)
-			utils.PrintErr(err)
-		}
-
-		allProjects = append(allProjects, projectNameSpaces(ps)...)
-		fmt.Println(len(allProjects), projectNameSpaces(ps)[1])
-		fmt.Println(resp.NextPage)
-		if resp.NextPage == 0 {
-			break
-		}
-		projectsOpt.Page = resp.NextPage
-	}
-
-	return allProjects
-}
-
 // getAllGroupProjects gets all projects for a specific group and all its subgroups with pagination
 func getAllGroupProjects(client *gitlab.Client, groups ...any) []string {
-	allGroups := []any{}
+	allGroups := make([]any, 0, len(groups))
 
 	for _, g := range groups {
 		allGroups = append(allGroups, g)
@@ -104,17 +50,21 @@ func getAllGroupProjects(client *gitlab.Client, groups ...any) []string {
 	}
 
 	// Get projects for each group
-	var allProjects []string
-	var mu sync.Mutex
-	var wg sync.WaitGroup
+	var (
+		allProjects []string
+		mu          sync.Mutex
+		wg          sync.WaitGroup
+	)
 
 	for _, gID := range allGroups {
 		wg.Add(1)
 		go func(gID any) {
 			defer wg.Done()
+
 			projects := getGroupProjects(client, gID)
 
 			mu.Lock()
+
 			allProjects = append(allProjects, projects...)
 			mu.Unlock()
 
@@ -123,6 +73,7 @@ func getAllGroupProjects(client *gitlab.Client, groups ...any) []string {
 	}
 
 	wg.Wait()
+
 	return allProjects
 }
 
@@ -134,6 +85,7 @@ func getGroupProjects(client *gitlab.Client, groupID any) []string {
 	}
 
 	var projects []string
+
 	for {
 		ps, resp, err := client.Groups.ListGroupProjects(groupID, &gitlab.ListGroupProjectsOptions{ListOptions: opt})
 		if err != nil {
@@ -149,6 +101,7 @@ func getGroupProjects(client *gitlab.Client, groupID any) []string {
 		if resp.NextPage == 0 {
 			break
 		}
+
 		opt.Page = resp.NextPage
 	}
 
@@ -163,6 +116,7 @@ func getAllSubgroups(client *gitlab.Client, groupID any) []any {
 	}
 
 	var allSubgroups []any
+
 	for {
 		// Use ListDescendantGroups to get all descendant groups (including nested subgroups)
 		subgroups, resp, err := client.Groups.ListDescendantGroups(groupID, &gitlab.ListDescendantGroupsOptions{
@@ -180,6 +134,7 @@ func getAllSubgroups(client *gitlab.Client, groupID any) []any {
 		if resp.NextPage == 0 {
 			break
 		}
+
 		opt.Page = resp.NextPage
 	}
 
@@ -194,28 +149,38 @@ func TransferGitURLToProject(gitURL string) string {
 	if strings.HasPrefix(gitURL, "https://") {
 		url = gitURL[len(Config.BaseURL) : len(gitURL)-4]
 	}
+
 	if strings.HasPrefix(gitURL, "git@") {
 		url = gitURL[:len(gitURL)-4]
 		url = strings.Split(url, ":")[1]
 	}
+
 	return url
 }
 
+// TraceRunningJobs traces the log of every running job and reports whether all of them are done.
 func TraceRunningJobs(client *gitlab.Client, pid any, jobs []*gitlab.Job, tailLine int64) bool {
 	wg := sync.WaitGroup{}
 	allDone := true
+
 	for _, job := range jobs {
 		if !IsRunning(job.Status) {
 			continue
 		}
+
 		allDone = false
+
 		wg.Add(1)
+
 		go func(j *gitlab.Job) {
 			_ = DoTrace(client, pid, j, tailLine)
+
 			wg.Done()
 		}(job)
 	}
+
 	wg.Wait()
+
 	return allDone
 }
 
@@ -224,6 +189,7 @@ func IsRunning(status string) bool {
 	if status == "created" || status == "pending" || status == "running" {
 		return true
 	}
+
 	return false
 }
 
@@ -231,31 +197,41 @@ func IsRunning(status string) bool {
 // It will make prefix failure, so replace it. PS: \x1b == ^[
 var re = regexp.MustCompile(`\x1b\[0m.*\[0K`)
 
+// DoTrace streams the trace of a job until it stops running.
 func DoTrace(client *gitlab.Client, pid any, job *gitlab.Job, tailLine int64) error {
 	var offset int64
+
 	firstTail := true
+
 	prefix := utils.RandomColor(fmt.Sprintf("[%s] ", job.Name))
 	for range time.NewTicker(interval).C {
 		trace, _, err := client.Jobs.GetTraceFile(pid, job.ID)
 		utils.Check(err)
 		buffer, err := io.ReadAll(trace)
 		utils.Check(err)
+
 		lines := strings.Split(string(buffer), "\n")
+
 		length := len(lines)
 		if firstTail {
 			begin := max(int64(length)-tailLine, 0)
 			lines = lines[begin : len(lines)-1]
 			firstTail = false
 		}
+
 		for _, line := range lines[offset:] {
 			println(re.ReplaceAllString(prefix+line, ``))
 		}
+
 		offset = int64(length)
+
 		if !IsRunning(job.Status) {
 			return nil
 		}
+
 		job, _, err = client.Jobs.GetJob(pid, job.ID)
 		utils.Check(err)
 	}
+
 	return nil
 }

@@ -8,5 +8,6 @@ func GetEnv(key, fallback string) string {
 	if len(value) == 0 {
 		return fallback
 	}
+
 	return value
 }

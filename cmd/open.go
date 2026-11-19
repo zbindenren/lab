@@ -27,14 +27,17 @@ var openCmd = &cobra.Command{
 
 func openCurrentRepo(cmd *cobra.Command, _ []string) {
 	internal.Setup()
+
 	if _, err := internal.CurrentGitRepo(); err != nil {
 		return
 	}
+
 	remote, _ := cmd.Flags().GetString("remote")
 	if remote == "" {
 		branch := internal.CurrentBranch()
 		remote = internal.CurrentRemote(branch)
 	}
+
 	gitURL := internal.RemoteURL(remote)
 	url := internal.TransferGitURLToURL(gitURL)
 
@@ -44,17 +47,20 @@ func openCurrentRepo(cmd *cobra.Command, _ []string) {
 			subpage = "pipelines"
 		}
 	}
+
 	if len(subpage) == 0 {
 		isMR, _ := cmd.Flags().GetBool("merge_requests")
 		if isMR {
 			subpage = "merge_requests"
 		}
 	}
+
 	if url[len(url)-5:] == ".wiki" {
-		url = fmt.Sprintf("%s/wikis", url[:len(url)-5])
+		url = url[:len(url)-5] + "/wikis"
 	} else {
 		url = fmt.Sprintf("%s/%s", url, subpage)
 	}
+
 	err := utils.OpenBrowser(url)
 	utils.Check(err)
 }

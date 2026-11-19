@@ -9,55 +9,68 @@ import (
 	"github.com/ackerr/lab/utils"
 )
 
+// GitCommand runs git with args and returns its stdout.
 func GitCommand(args ...string) (string, error) {
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command("git", args...) // #nosec G204 -- git is invoked with controlled arguments
 	cmd.Stderr = os.Stderr
 	output, err := cmd.Output()
+
 	return string(output), err
 }
 
 // Clone git clone the gitlab project
 func Clone(gitURL, path string) error {
 	args := []string{"clone", gitURL, path}
-	extra := strings.Split(MainConfig.CloneOpts, " ")
-	for _, a := range extra {
+
+	extra := strings.SplitSeq(MainConfig.CloneOpts, " ")
+	for a := range extra {
 		if a != "" {
 			args = append(args, a)
 		}
 	}
-	cmd := exec.Command("git", args...)
+
+	cmd := exec.Command("git", args...) // #nosec G204 -- git is invoked with controlled arguments
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
+
 	err := cmd.Run()
 	if err != nil {
 		// if clone failed, remove the empty directory
 		_ = os.Remove(path)
 		return err
 	}
+
 	if len(Config.Email) > 0 {
 		_ = SetGitConfig("email", Config.Email, path)
 	}
+
 	if len(Config.Name) > 0 {
 		_ = SetGitConfig("name", Config.Name, path)
 	}
+
 	return err
 }
 
+// Fetch fetches all remotes of the repository at path.
 func Fetch(path string) error {
-	cmd := exec.Command("git", "-C", path, "fetch", "--all")
+	cmd := exec.Command("git", "-C", path, "fetch", "--all") // #nosec G204 -- git is invoked with a cleaned repository path
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	err := cmd.Run()
+
 	return err
 }
 
+// SetGitConfig sets user.<key> to value in the repository at path.
 func SetGitConfig(key, value, path string) error {
 	args := []string{}
 	if len(path) > 0 {
 		args = append(args, "-C", path)
 	}
+
 	args = append(args, "config", "user."+key, value)
 	_, err := GitCommand(args...)
+
 	return err
 }
 
@@ -67,34 +80,40 @@ func CurrentGitRepo() (string, error) {
 	return output, err
 }
 
-// CurrentGitRepo return the current branch
+// CurrentBranch returns the current git branch, master if it cannot be resolved.
 func CurrentBranch() string {
 	branch, err := SymbolicRef("HEAD", true)
 	if branch == "" || err != nil {
 		branch = "master"
 	}
+
 	return branch
 }
 
+// RemoteURL returns the url of the given git remote.
 func RemoteURL(remote string) string {
 	gitURL, err := GitCommand("ls-remote", "--get-url", remote)
 	if err != nil {
 		utils.Err("git remote is not set for", remote)
 	}
+
 	gitURL = firstLine(gitURL)
 	if gitURL == remote {
 		utils.Err(remote, "is a wrong remote")
 	}
+
 	return gitURL
 }
 
-// CurrentGitRepo return the current branch ref remote
+// CurrentRemote returns the remote tracked by branch, origin if it cannot be resolved.
 func CurrentRemote(branch string) string {
 	remote, err := GitCommand("config", fmt.Sprintf("branch.%s.remote", branch))
+
 	remote = firstLine(remote)
 	if remote == "" || err != nil {
 		remote = "origin"
 	}
+
 	return remote
 }
 
@@ -104,16 +123,19 @@ func SymbolicRef(ref string, short bool) (string, error) {
 	if short {
 		args = append(args, "--short")
 	}
+
 	args = append(args, ref)
 	output, err := GitCommand(args...)
+
 	return firstLine(output), err
 }
 
 // the git command output always has the "/n"
 func firstLine(output string) string {
-	if i := strings.Index(output, "\n"); i >= 0 {
-		return output[0:i]
+	if before, _, ok := strings.Cut(output, "\n"); ok {
+		return before
 	}
+
 	return output
 }
 
@@ -125,10 +147,12 @@ func TransferGitURLToURL(gitURL string) string {
 	if strings.HasPrefix(gitURL, "https://") {
 		url = gitURL[:len(gitURL)-4]
 	}
+
 	if strings.HasPrefix(gitURL, "git@") {
 		url = gitURL[:len(gitURL)-4]
 		url = strings.Replace(url, ":", "/", 1)
 		url = strings.Replace(url, "git@", "https://", 1)
 	}
+
 	return url
 }

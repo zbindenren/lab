@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -16,15 +17,19 @@ import (
 func FuzzyLine(filePath string) string {
 	lines, err := utils.ReadLines(filePath)
 	utils.Check(err)
+
 	filtered := FuzzyFinder(lines)
+
 	return filtered
 }
 
-// FuzzyLine : fuzzy finder file lines
+// FuzzyLines lets the user pick multiple lines out of the file.
 func FuzzyLines(filePath string) []string {
 	lines, err := utils.ReadLines(filePath)
 	utils.Check(err)
+
 	filtered := FuzzyMultiFinder(lines)
+
 	return filtered
 }
 
@@ -45,12 +50,15 @@ func FuzzyFinder(lines []string) (filtered string) {
 		index, err := fuzzyfinder.Find(lines, func(i int) string {
 			return lines[i]
 		})
-		if err == fuzzyfinder.ErrAbort {
+		if errors.Is(err, fuzzyfinder.ErrAbort) {
 			return
 		}
+
 		utils.Check(err)
+
 		filtered = lines[index]
 	}
+
 	return
 }
 
@@ -66,14 +74,17 @@ func FuzzyMultiFinder(lines []string) (filtered []string) {
 		index, err := fuzzyfinder.FindMulti(lines, func(i int) string {
 			return lines[i]
 		})
-		if err == fuzzyfinder.ErrAbort {
+		if errors.Is(err, fuzzyfinder.ErrAbort) {
 			return
 		}
+
 		utils.Check(err)
+
 		for _, i := range index {
 			filtered = append(filtered, lines[i])
 		}
 	}
+
 	return
 }
 
@@ -81,7 +92,9 @@ func checkFZF() bool {
 	if !MainConfig.FZF {
 		return false
 	}
+
 	_, err := exec.LookPath("fzf")
+
 	return err == nil
 }
 
@@ -90,16 +103,22 @@ func withFilter(command string, input func(in io.WriteCloser)) []string {
 	if len(shell) == 0 {
 		shell = "sh"
 	}
-	cmd := exec.Command(shell, "-c", command)
+
+	cmd := exec.Command(shell, "-c", command) // #nosec G204 G702 -- command is a constant ("fzf"/"fzf -m") and shell comes from $SHELL
 	cmd.Stderr = os.Stderr
+
 	in, _ := cmd.StdinPipe()
 	go func() {
 		input(in)
 		in.Close()
 	}()
+
 	result, err := cmd.Output()
-	if _, ok := err.(*exec.ExitError); ok {
+
+	exitError := &exec.ExitError{}
+	if errors.As(err, &exitError) {
 		return nil
 	}
+
 	return strings.Split(strings.TrimSpace(string(result)), "\n")
 }

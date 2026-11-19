@@ -1,3 +1,4 @@
+// Package cmd declares the lab command tree.
 package cmd
 
 import (
@@ -23,12 +24,14 @@ var browserCmd = &cobra.Command{
 
 func openURL(cmd *cobra.Command, args []string) {
 	internal.Setup()
+
 	var project string
 	if len(args) > 0 {
 		project = args[0]
 	} else {
 		project = ""
 	}
+
 	if project == "" {
 		project = internal.FuzzyLine(internal.ProjectPath)
 	}
@@ -40,17 +43,21 @@ func openURL(cmd *cobra.Command, args []string) {
 	url := fmt.Sprintf("%s/%s", internal.Config.BaseURL, project)
 
 	subpage := ""
+
 	isPL, _ := cmd.Flags().GetBool("pipelines")
 	if isPL {
 		subpage = "pipelines"
 	}
+
 	isMR, _ := cmd.Flags().GetBool("merge_requests")
 	if isMR {
 		subpage = "merge_requests"
 	}
+
 	if len(subpage) > 0 {
 		url = fmt.Sprintf("%s/-/%s", url, subpage)
 	}
+
 	err := utils.OpenBrowser(url)
 	utils.Check(err)
 }

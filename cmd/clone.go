@@ -34,6 +34,7 @@ var cloneCmd = &cobra.Command{
 
 func cloneRepo(cmd *cobra.Command, _ []string) {
 	internal.Setup()
+
 	projects := internal.FuzzyLines(internal.ProjectPath)
 	if len(projects) == 0 {
 		return
@@ -41,11 +42,13 @@ func cloneRepo(cmd *cobra.Command, _ []string) {
 
 	isHTTPS, _ := cmd.Flags().GetBool("https")
 	isCurrent, _ := cmd.Flags().GetBool("current")
+
 	for _, project := range projects {
 		p := project
 		if cmd.Use == "wiki" {
-			p = p + ".wiki"
+			p += ".wiki"
 		}
+
 		utils.PrintlnWithColor(utils.ColorFg("Cloning "+p, internal.MainConfig.ThemeColor))
 		clone(p, isHTTPS, isCurrent)
 	}
@@ -53,6 +56,7 @@ func cloneRepo(cmd *cobra.Command, _ []string) {
 
 func clone(project string, isHTTPS, isCurrent bool) {
 	var gitURL, path string
+
 	baseURL := internal.Config.BaseURL
 	if strings.HasPrefix(baseURL, "http") {
 		baseURL = strings.Split(baseURL, "://")[1]
@@ -63,22 +67,31 @@ func clone(project string, isHTTPS, isCurrent bool) {
 	} else {
 		gitURL = strings.Join([]string{internal.Config.BaseURL, project}, "/")
 	}
+
 	codespace := internal.Config.Codespace
 	sign := make(chan os.Signal, 1)
 	signal.Notify(sign, syscall.SIGINT, syscall.SIGTERM)
+
 	if !isCurrent && len(codespace) > 0 {
-		dirs := []string{codespace, baseURL}
-		dirs = append(dirs, strings.Split(project, "/")...)
+		parts := strings.Split(project, "/")
+		dirs := make([]string, 0, 2+len(parts))
+		dirs = append(dirs, codespace, baseURL)
+		dirs = append(dirs, parts...)
+
 		path = filepath.Join(dirs...)
 		if utils.FileExists(path) {
 			_ = internal.Fetch(path)
 			return
 		}
+
 		err := os.MkdirAll(path, utils.DirPerm)
+
 		go func() {
 			<-sign
+
 			_ = os.Remove(path)
 		}()
+
 		utils.Check(err)
 	} else {
 		// current path
@@ -86,5 +99,6 @@ func clone(project string, isHTTPS, isCurrent bool) {
 		dir := strings.Split(project, "/")
 		path = strings.Join([]string{path, dir[len(dir)-1]}, "/")
 	}
+
 	_ = internal.Clone(gitURL, path)
 }

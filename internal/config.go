@@ -1,3 +1,4 @@
+// Package internal provides lab's configuration, git and GitLab helpers.
 package internal
 
 import (
@@ -12,7 +13,7 @@ import (
 	"github.com/ackerr/lab/utils"
 )
 
-var content = []byte(`[gitlab]
+const content = `[gitlab]
 # gitlab domain, like https://gitlab.com
 base_url = "$GITLAB_BASE_URL"
 
@@ -44,33 +45,42 @@ fzf = 0
 # example clone_opts="--origin ackerr --branch fix"
 # default empty
 clone_opts = ""
-`)
+`
 
 var (
-	// Config global gitlab config
-	Config      *gitlabConfig
-	MainConfig  *mainConfig
-	LabDir      string
-	ConfigPath  string
+	// Config is the gitlab section of the lab config file.
+	Config *gitlabConfig
+	// MainConfig is the main section of the lab config file.
+	MainConfig *mainConfig
+	// LabDir is the directory holding the lab config file.
+	LabDir string
+	// ConfigPath is the path of the lab config file.
+	ConfigPath string
+	// ProjectPath is the file the synced project paths are stored in.
 	ProjectPath string
 )
 
+// SetupConfig creates the config directory and file if they are missing and loads them into viper.
 func SetupConfig() {
 	home, _ := os.UserHomeDir()
 	LabDir = filepath.Join(home, ".config", "lab")
 	err := os.MkdirAll(LabDir, utils.DirPerm)
 	utils.Check(err)
+
 	if ConfigPath == "" {
 		ConfigPath = filepath.Join(LabDir, "config.toml")
 	}
+
 	if _, err = os.Stat(ConfigPath); os.IsNotExist(err) {
-		err = os.WriteFile(ConfigPath, content, utils.FilePerm)
+		err = os.WriteFile(ConfigPath, []byte(content), utils.FilePerm)
 		utils.Check(err)
 	}
+
 	buf, err := envsubst.ReadFile(ConfigPath)
 	utils.Check(err)
 	viper.SetConfigType("toml")
 	viper.AddConfigPath(LabDir)
+
 	err = viper.ReadConfig(bytes.NewReader(buf))
 	utils.Check(err)
 }
@@ -91,15 +101,20 @@ type mainConfig struct {
 	FZF            bool   `mapstructure:"fzf"`
 }
 
+// Setup loads the gitlab and main sections of the config and validates the required values.
 func Setup() {
 	// init main config
 	MainConfig = &mainConfig{}
+
 	viper.SetDefault("main.theme_color", "79")
+
 	err := viper.Sub("main").Unmarshal(MainConfig)
 	utils.Check(err)
+
 	if len(MainConfig.ThemeColor) == 0 {
 		MainConfig.ThemeColor = "79"
 	}
+
 	if MainConfig.TailLineNumber == 0 {
 		MainConfig.TailLineNumber = 20
 	}
@@ -117,23 +132,29 @@ func Setup() {
 	if len(baseURL) == 0 {
 		utils.Err("set Gitlab base url first, use `lab config`")
 	}
+
 	if !strings.HasPrefix(baseURL, "http") {
 		baseURL = "https://" + baseURL
 	}
+
 	Config.BaseURL = strings.TrimSuffix(baseURL, "/")
 
 	home, err := os.UserHomeDir()
 	utils.Check(err)
+
 	codespace := Config.Codespace
 	if strings.HasPrefix(codespace, "~") {
 		codespace = filepath.Join(home, codespace[1:])
 	}
+
 	if strings.HasSuffix(codespace, string(os.PathSeparator)) {
 		codespace = codespace[:len(codespace)-len(string(os.PathSeparator))]
 	}
+
 	Config.Codespace = codespace
 	if Config.Projects == "" {
 		Config.Projects = filepath.Join(LabDir, ".projects")
 	}
+
 	ProjectPath = Config.Projects
 }

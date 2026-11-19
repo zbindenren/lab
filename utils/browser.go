@@ -1,3 +1,4 @@
+// Package utils provides helpers for files, colors, errors and processes.
 package utils
 
 import (
@@ -21,6 +22,7 @@ func browserLauncher() ([]string, error) {
 	if browser == "" {
 		return nil, errors.New("please set $BROWSER to a web launcher")
 	}
+
 	return shellquote.Split(browser)
 }
 
@@ -35,6 +37,7 @@ func searchBrowserLauncher(goos string) (browser string) {
 	default:
 		browser = ""
 	}
+
 	return browser
 }
 
@@ -44,7 +47,12 @@ func OpenBrowser(url string) error {
 	if err != nil {
 		return err
 	}
-	args := append(launcher, url)
-	cmd := exec.Command(args[0], args[1:]...)
+
+	args := make([]string, 0, len(launcher)+1)
+	args = append(args, launcher...)
+	args = append(args, url)
+
+	cmd := exec.Command(args[0], args[1:]...) // #nosec G204 -- the launcher comes from $BROWSER or a known platform default
+
 	return cmd.Run()
 }

@@ -4,7 +4,6 @@ go 1.27.4
 
 require (
 	github.com/a8m/envsubst v1.4.3
-	github.com/briandowns/spinner v1.23.2
 	github.com/fatih/color v1.19.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/ktr0731/go-fuzzyfinder v0.9.0

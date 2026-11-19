@@ -18,6 +18,8 @@ const content = `[gitlab]
 base_url = "$GITLAB_BASE_URL"
 
 # gitlab access token
+# Last resort: GITLAB_TOKEN and the token stored by lab auth login win over this entry.
+# Leave it empty to read the token from the keychain.
 token = "$GITLAB_TOKEN"
 
 # gitlab projects file
@@ -103,7 +105,15 @@ type mainConfig struct {
 
 // Setup loads the gitlab and main sections of the config and validates the required values.
 func Setup() {
-	// init main config
+	setupMainConfig()
+	SetupGitLabConfig()
+
+	if len(Config.BaseURL) == 0 {
+		utils.Err("set Gitlab base url first, use `lab config`")
+	}
+}
+
+func setupMainConfig() {
 	MainConfig = &mainConfig{}
 
 	viper.SetDefault("main.theme_color", "79")
@@ -118,26 +128,17 @@ func Setup() {
 	if MainConfig.TailLineNumber == 0 {
 		MainConfig.TailLineNumber = 20
 	}
+}
 
-	// init gitlab config
+// SetupGitLabConfig loads the gitlab section of the config and normalises its values.
+// It needs no token, so commands can run before a token exists.
+func SetupGitLabConfig() {
 	Config = &gitlabConfig{}
-	err = viper.Sub("gitlab").Unmarshal(Config)
+
+	err := viper.Sub("gitlab").Unmarshal(Config)
 	utils.Check(err)
 
-	if len(Config.Token) == 0 {
-		utils.Err("set Gitlab token first, use `lab config`")
-	}
-
-	baseURL := Config.BaseURL
-	if len(baseURL) == 0 {
-		utils.Err("set Gitlab base url first, use `lab config`")
-	}
-
-	if !strings.HasPrefix(baseURL, "http") {
-		baseURL = "https://" + baseURL
-	}
-
-	Config.BaseURL = strings.TrimSuffix(baseURL, "/")
+	Config.BaseURL = normalizeBaseURL(Config.BaseURL)
 
 	home, err := os.UserHomeDir()
 	utils.Check(err)
@@ -157,4 +158,17 @@ func Setup() {
 	}
 
 	ProjectPath = Config.Projects
+}
+
+// normalizeBaseURL adds a https scheme when it is missing and drops a trailing slash.
+func normalizeBaseURL(baseURL string) string {
+	if baseURL == "" {
+		return ""
+	}
+
+	if !strings.HasPrefix(baseURL, "http") {
+		baseURL = "https://" + baseURL
+	}
+
+	return strings.TrimSuffix(baseURL, "/")
 }

@@ -3,6 +3,7 @@ package internal
 import (
 	"fmt"
 	"io"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -21,16 +22,32 @@ const (
 	throttle = 50 * time.Microsecond
 )
 
-// NewClient creates a gitlab client for the configured base url and token.
+// NewClient creates a gitlab client for the configured base url and the token
+// resolved from the environment, the OS keychain or the config file.
 func NewClient() *gitlab.Client {
-	path := gitlab.WithBaseURL(strings.Join([]string{Config.BaseURL, "api", apiVersion}, "/"))
+	token, _, err := NewTokenResolver(NewKeychainStore(), os.Getenv).Resolve(Config.BaseURL, Config.Token)
+	utils.Check(err)
 
-	client, err := gitlab.NewClient(Config.Token, path)
-	if err != nil {
-		utils.Err(err)
-	}
+	return NewClientWithToken(token)
+}
+
+// NewClientWithToken creates a gitlab client for the configured base url with an
+// explicit token, so a candidate token can be checked before it is stored.
+func NewClientWithToken(token string) *gitlab.Client {
+	client, err := newClient(Config.BaseURL, token)
+	utils.Check(err)
 
 	return client
+}
+
+func newClient(baseURL, token string) (*gitlab.Client, error) {
+	if token == "" {
+		return nil, ErrNoToken
+	}
+
+	path := gitlab.WithBaseURL(strings.Join([]string{baseURL, "api", apiVersion}, "/"))
+
+	return gitlab.NewClient(token, path)
 }
 
 // Projects returns the path with namespace of all projects in the synced groups.

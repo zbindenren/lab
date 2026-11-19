@@ -3,6 +3,8 @@
 base_url = "$GITLAB_BASE_URL"
 
 # gitlab access token
+# Last resort: GITLAB_TOKEN and the token stored by lab auth login win over this entry.
+# Leave it empty to read the token from the keychain.
 token = "$GITLAB_TOKEN"
 
 # gitlab projects file

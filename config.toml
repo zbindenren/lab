@@ -23,6 +23,10 @@ name = ""
 # default empty
 email = ""
 
+# Groups whose projects lab sync collects, including all their subgroups.
+# default ["linux", "kubernetes"]
+groups = []
+
 [main]
 # If set 1, it will use fzf as fuzzy finder, default use go-fuzzyfinder
 # default 0

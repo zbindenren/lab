@@ -38,6 +38,10 @@ name = ""
 # default empty
 email = ""
 
+# Groups whose projects lab sync collects, including all their subgroups.
+# default ["linux", "kubernetes"]
+groups = []
+
 [main]
 # If set 1, it will use fzf as fuzzy finder, default use go-fuzzyfinder
 # default 0
@@ -48,6 +52,12 @@ fzf = 0
 # default empty
 clone_opts = ""
 `
+
+// syncGroups is the group list used when the config file names none.
+// It returns a fresh slice so Config.Groups never aliases shared state.
+func syncGroups() []string {
+	return []string{"linux", "kubernetes"}
+}
 
 var (
 	// Config is the gitlab section of the lab config file.
@@ -88,12 +98,13 @@ func SetupConfig() {
 }
 
 type gitlabConfig struct {
-	BaseURL   string `mapstructure:"base_url"`
-	Token     string `mapstructure:"token"`
-	Codespace string `mapstructure:"codespace"`
-	Name      string `mapstructure:"name"`
-	Email     string `mapstructure:"email"`
-	Projects  string `mapstructure:"projects"`
+	BaseURL   string   `mapstructure:"base_url"`
+	Token     string   `mapstructure:"token"`
+	Codespace string   `mapstructure:"codespace"`
+	Name      string   `mapstructure:"name"`
+	Email     string   `mapstructure:"email"`
+	Projects  string   `mapstructure:"projects"`
+	Groups    []string `mapstructure:"groups"`
 }
 
 type mainConfig struct {
@@ -139,6 +150,10 @@ func SetupGitLabConfig() {
 	utils.Check(err)
 
 	Config.BaseURL = normalizeBaseURL(Config.BaseURL)
+
+	if len(Config.Groups) == 0 {
+		Config.Groups = syncGroups()
+	}
 
 	home, err := os.UserHomeDir()
 	utils.Check(err)

@@ -62,7 +62,7 @@ type GroupProjects struct {
 func Projects() ([]string, []GroupProjects) {
 	client := NewClient()
 
-	return getAllGroupProjects(client, "linux", "kubernetes")
+	return getAllGroupProjects(client, Config.Groups...)
 }
 
 // getAllGroupProjects gets all projects for a specific group and all its subgroups with pagination

@@ -49,6 +49,15 @@ Recommend use `lab config` to edit config file (`~/.config/lab/config.toml`), th
 
 > `base_url` is required. The token comes from the OS keychain, from `GITLAB_TOKEN`, or from `token` in the config file, see [Token storage](#token-storage). The way to get gitlab token, see [this](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html#creating-a-personal-access-token)
 
+`lab sync` collects the projects of the groups listed in `gitlab.groups` plus all their subgroups, and writes them to the projects file. The list defaults to `["linux", "kubernetes"]` when it is missing or empty, so a repo under any other top-level group is not synced until that group is added:
+
+```toml
+[gitlab]
+groups = ["linux", "kubernetes", "infrastructure"]
+```
+
+Only the groups given are queried: a project that is visible to your token through a group you are not a member of, or through a group left out of the list, does not appear.
+
 ## Token storage
 
 `lab auth login` stores a personal access token in the OS keychain, under `lab:<host>` for the host in `base_url`. It reads the token from a hidden prompt, checks it against the GitLab API and stores it only once the API accepts it. Pipe the token on stdin to provision a machine without a prompt.

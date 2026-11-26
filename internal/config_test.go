@@ -18,9 +18,11 @@ func TestSetupGitLabConfig(t *testing.T) {
 		baseURL       string
 		codespace     string
 		projects      string
+		groups        []string
 		wantBaseURL   string
 		wantCodespace string
 		wantProjects  string
+		wantGroups    []string
 	}{
 		{
 			name:        "base url without scheme",
@@ -51,6 +53,20 @@ func TestSetupGitLabConfig(t *testing.T) {
 			baseURL:     "gitlab.example.com",
 			wantBaseURL: "https://gitlab.example.com",
 		},
+		{
+			name:        "groups given",
+			baseURL:     "gitlab.example.com",
+			groups:      []string{"infrastructure", "linux"},
+			wantBaseURL: "https://gitlab.example.com",
+			wantGroups:  []string{"infrastructure", "linux"},
+		},
+		{
+			name:        "groups empty falls back to default",
+			baseURL:     "gitlab.example.com",
+			groups:      []string{},
+			wantBaseURL: "https://gitlab.example.com",
+			wantGroups:  []string{"linux", "kubernetes"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -63,6 +79,7 @@ func TestSetupGitLabConfig(t *testing.T) {
 				"base_url":  tt.baseURL,
 				"codespace": tt.codespace,
 				"projects":  tt.projects,
+				"groups":    tt.groups,
 			})
 
 			SetupGitLabConfig()
@@ -72,9 +89,15 @@ func TestSetupGitLabConfig(t *testing.T) {
 				wantProjects = filepath.Join(LabDir, ".projects")
 			}
 
+			wantGroups := tt.wantGroups
+			if wantGroups == nil {
+				wantGroups = []string{"linux", "kubernetes"}
+			}
+
 			require.Equal(t, tt.wantBaseURL, Config.BaseURL)
 			require.Equal(t, tt.wantCodespace, Config.Codespace)
 			require.Equal(t, wantProjects, ProjectPath)
+			require.Equal(t, wantGroups, Config.Groups)
 			require.Empty(t, Config.Token)
 		})
 	}
